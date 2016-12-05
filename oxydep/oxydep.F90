@@ -353,7 +353,7 @@ call self%register_diagnostic_variable(self%id_POM_decay_denitr,'POM_decay_denit
 !--------------------------------------------------------------
    ! Changes of OXY due to OM production and decay!
     doxy = -self%OtoN*(POM_decay_ox + DOM_decay_ox &
-           + (POM_decay_denitr + DOM_decay_denitr) &
+   !        + (POM_decay_denitr + DOM_decay_denitr) &
            - GrowthPhy*phy + RespPhy) &
    ! additional consumption of OXY due to oxidation of reduced froms of S,Mn,Fe etc.
    ! in suboxic conditions  equales consumption for NH4 oxidation (Yakushev et al, 2008 in Nauka Kubani)
@@ -427,7 +427,8 @@ _SET_DIAGNOSTIC_(self%id_POM_decay_denitr,POM_decay_denitr)
 
 ! !LOCAL VARIABLES:
    real(rk)                   :: O2, temp, salt, windspeed
-   real(rk)                   :: Ox, Oa, TempT, Obe, Q_O2
+   !real(rk)                   :: Ox, Oa, TempT, Obe, Q_O2
+   real(rk)                   :: Schmidt, wind_coef, TempT, O2_sat, Q_O2
 
    _HORIZONTAL_LOOP_BEGIN_
     _GET_(self%id_oxy,O2)
@@ -435,21 +436,44 @@ _SET_DIAGNOSTIC_(self%id_POM_decay_denitr,POM_decay_denitr)
     _GET_(self%id_salt,salt)              ! salinity
     _GET_HORIZONTAL_(self%id_windspeed,windspeed)
 
-   Ox = 1953.4-128*temp+3.9918*temp*temp-0.050091*temp*temp*temp !(Wanninkoff, 1992)
-     if (Ox>0) then
-       Oa = 0.028*(windspeed**3.)*sqrt(400/Ox)   !
-     else
-       Oa = 0.
-     endif
-   ! Calculation of O2 saturation Obe according to UNESCO, 1986
+    
+!   Schmidt = 1953.4-128*temp+3.9918*temp*temp-0.050091*temp*temp*temp !(Wanninkoff, 1992)
+   Schmidt = 1568.-86.04*temp+2.142*temp*temp-0.0216*temp*temp*temp !for Oxygen (Raymond et al., 2012)
+! Wind coefficient
+   wind_coef =  (0.222d0 * windspeed**2d0 + 0.333d0 * windspeed)*(Schmidt/660.d0)**(-0.5)  !from ERSEM for CO2
+     !if (Schmidt>0) then
+     !  wind_coef = 0.028*(windspeed**3.)*sqrt(400/Schmidt)
+     !else
+     !  wind_coef = 0.
+     !endif
+     
+! Calculation of O2 saturation O2_sat according to UNESCO, 1986
    TempT = (temp+273.15)/100.
-   Obe = exp(-173.4292+249.6339/TempT+143.3483*log(TempT)-21.8492*TempT+salt*(-0.033096+0.014259*TempT-0.0017*TempT*TempT)) !Osat
-   Obe = Obe*1000./22.4  ! convert from ml/l into uM
+   O2_sat = exp(-173.4292+249.6339/TempT+143.3483*log(TempT)-21.8492*TempT+salt*(-0.033096+0.014259*TempT-0.0017*TempT*TempT)) !Osat
+   O2_sat = O2_sat*1000./22.4  ! convert from ml/l into uM
 
-!  Q_O2 = Oa*(Obe-O2)*0.24 ! 0.24 is to convert from [cm/h] to [m/day]
-   Q_O2 = windspeed*(Obe-O2)/86400. !After (Burchard et al., 2005)
+   Q_O2 = wind_coef*(O2_sat-O2)*0.24 ! 0.24 is to convert from [cm/h] to [m/day]
+!   Q_O2 = windspeed*(O2_sat-O2)  !After (Burchard et al., 2005)
 
-  _SET_SURFACE_EXCHANGE_(self%id_oxy,Q_O2)
+  _SET_SURFACE_EXCHANGE_(self%id_oxy,Q_O2/86400.)    
+    
+    
+    
+!!!!!   Ox = 1953.4-128*temp+3.9918*temp*temp-0.050091*temp*temp*temp !(Wanninkoff, 1992)
+!!!!!     if (Ox>0) then
+!!!!!       Oa = 0.028*(windspeed**3.)*sqrt(400/Ox)   !
+!!!!!     else
+!!!!!       Oa = 0.
+!!!!!     endif
+!!!!!   ! Calculation of O2 saturation Obe according to UNESCO, 1986
+!!!!!   TempT = (temp+273.15)/100.
+!!!!!   Obe = exp(-173.4292+249.6339/TempT+143.3483*log(TempT)-21.8492*TempT+salt*(-0.033096+0.014259*TempT-0.0017*TempT*TempT)) !Osat
+!!!!!   Obe = Obe*1000./22.4  ! convert from ml/l into uM
+!!!!!
+!!!!!!  Q_O2 = Oa*(Obe-O2)*0.24 ! 0.24 is to convert from [cm/h] to [m/day]
+!!!!!   Q_O2 = windspeed*(Obe-O2)/86400. !After (Burchard et al., 2005)
+!!!!!
+!!!!!  _SET_SURFACE_EXCHANGE_(self%id_oxy,Q_O2)
 
 _HORIZONTAL_LOOP_END_
 
@@ -481,28 +505,23 @@ _HORIZONTAL_LOOP_END_
    _GET_(self%id_dom,dom)
    _GET_(self%id_oxy,oxy)
 
-   ! BURYING into the sediments, mmol/m2/s (sinking rates "Wxxx" are in m/s and positive upward)
+   ! DOWNWARD FLUX of particles (BURYING) into the sediments , mmol/m2/s (sinking rates "Wxxx" are in m/s and positive upward)
    _SET_BOTTOM_EXCHANGE_(self%id_pom,self%Bu*self%Wpom*pom)
    _SET_BOTTOM_EXCHANGE_(self%id_phy,self%Bu*self%Wphy*phy)
    _SET_BOTTOM_EXCHANGE_(self%id_het,self%Bu*self%Whet*het)
 
-   ! we use here the relaxation condition with relaxation time Trel
+   ! we use here the relaxation condition with relaxation time Trel [m/s]
 
-   ! UPWARD fluxes of dissolved parameters
-   !--- independent on redox conditions
-   _SET_BOTTOM_EXCHANGE_(self%id_dom,-(dom-self%b_dom_ox)/self%Trel)
+   ! UPWARD fluxes of dissolved DOM (that includes ammonia). The flux increases at O2<O2_suboxic
+   _SET_BOTTOM_EXCHANGE_(self%id_dom,-((dom-self%b_dom_ox)+(1.-0.5*(1.-tanh(self%O2_suboxic-oxy)))*(dom-self%b_dom_anox))/self%Trel)
 
-   !--- dependent on redox conditions, in suboxic and anoxic conditions upward flux of DOM increases, and OXY=0 in the pore water
-   _SET_BOTTOM_EXCHANGE_(self%id_dom,-(1.-0.5*(1.-tanh(self%O2_suboxic-oxy)))*(dom-self%b_dom_anox)/self%Trel)
-   _SET_BOTTOM_EXCHANGE_(self%id_oxy,-(1.-0.5*(1.-tanh(self%O2_suboxic-oxy)))*(oxy-0.)/self%Trel)
-
-   ! DOWNWARD fluxes of dissolved parameters
+   ! DOWNWARD flux of dissolved oxygen.
    !--- dependent on redox conditions: in oxic conditions OXY is additionally consumed due to its flux from water to sediments
-   _SET_BOTTOM_EXCHANGE_(self%id_oxy,-(1-tanh(self%O2_suboxic-oxy))*(oxy-min(self%b_ox,oxy))/self%Trel)
+   _SET_BOTTOM_EXCHANGE_(self%id_oxy,-(1.-0.5*(1.-tanh(self%O2_suboxic-oxy)))*(oxy-0.)/self%Trel-(1-tanh(self%O2_suboxic-oxy))*(oxy-min(self%b_ox,oxy))/self%Trel)
 
-   ! in oxic conditions fluxes of NO3/NO2 for denitrification in the sediments
+   ! DOWNWARD flux of Nut (NO3+NO2) for denitrification in the sediments
    _SET_BOTTOM_EXCHANGE_(self%id_nut,-(1-tanh(self%O2_suboxic-oxy))*(nut-min(self%b_nut,nut))/self%Trel)
-
+  
    _HORIZONTAL_LOOP_END_
 
    end subroutine
