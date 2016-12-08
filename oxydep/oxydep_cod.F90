@@ -165,7 +165,7 @@
 ! OXY
 !--------------------------------------------------------------
 ! Changes of OXY due to OM production and decay!
-   doxy  = -CHON_decay_ox
+   doxy  = -2.0_rk*CHON_decay_ox
    dCHON = -CHON_decay_ox
 !   dnut = 
 !   ddom = 

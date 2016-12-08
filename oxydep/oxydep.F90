@@ -427,8 +427,7 @@ _SET_DIAGNOSTIC_(self%id_POM_decay_denitr,POM_decay_denitr)
 
 ! !LOCAL VARIABLES:
    real(rk)                   :: O2, temp, salt, windspeed
-   !real(rk)                   :: Ox, Oa, TempT, Obe, Q_O2
-   real(rk)                   :: Schmidt, wind_coef, TempT, O2_sat, Q_O2
+   real(rk)                   :: Ox, Oa, TempT, Obe, Q_O2
 
    _HORIZONTAL_LOOP_BEGIN_
     _GET_(self%id_oxy,O2)
@@ -436,44 +435,21 @@ _SET_DIAGNOSTIC_(self%id_POM_decay_denitr,POM_decay_denitr)
     _GET_(self%id_salt,salt)              ! salinity
     _GET_HORIZONTAL_(self%id_windspeed,windspeed)
 
-    
-!   Schmidt = 1953.4-128*temp+3.9918*temp*temp-0.050091*temp*temp*temp !(Wanninkoff, 1992)
-   Schmidt = 1568.-86.04*temp+2.142*temp*temp-0.0216*temp*temp*temp !for Oxygen (Raymond et al., 2012)
-! Wind coefficient
-   wind_coef =  (0.222d0 * windspeed**2d0 + 0.333d0 * windspeed)*(Schmidt/660.d0)**(-0.5)  !from ERSEM for CO2
-     !if (Schmidt>0) then
-     !  wind_coef = 0.028*(windspeed**3.)*sqrt(400/Schmidt)
-     !else
-     !  wind_coef = 0.
-     !endif
-     
-! Calculation of O2 saturation O2_sat according to UNESCO, 1986
+   Ox = 1953.4-128*temp+3.9918*temp*temp-0.050091*temp*temp*temp !(Wanninkoff, 1992)
+     if (Ox>0) then
+       Oa = 0.028*(windspeed**3.)*sqrt(400/Ox)   !
+     else
+       Oa = 0.
+     endif
+   ! Calculation of O2 saturation Obe according to UNESCO, 1986
    TempT = (temp+273.15)/100.
-   O2_sat = exp(-173.4292+249.6339/TempT+143.3483*log(TempT)-21.8492*TempT+salt*(-0.033096+0.014259*TempT-0.0017*TempT*TempT)) !Osat
-   O2_sat = O2_sat*1000./22.4  ! convert from ml/l into uM
+   Obe = exp(-173.4292+249.6339/TempT+143.3483*log(TempT)-21.8492*TempT+salt*(-0.033096+0.014259*TempT-0.0017*TempT*TempT)) !Osat
+   Obe = Obe*1000./22.4  ! convert from ml/l into uM
 
-   Q_O2 = wind_coef*(O2_sat-O2)*0.24 ! 0.24 is to convert from [cm/h] to [m/day]
-!   Q_O2 = windspeed*(O2_sat-O2)  !After (Burchard et al., 2005)
+!  Q_O2 = Oa*(Obe-O2)*0.24 ! 0.24 is to convert from [cm/h] to [m/day]
+   Q_O2 = windspeed*(Obe-O2)/86400. !After (Burchard et al., 2005)
 
-  _SET_SURFACE_EXCHANGE_(self%id_oxy,Q_O2/86400.)    
-    
-    
-    
-!!!!!   Ox = 1953.4-128*temp+3.9918*temp*temp-0.050091*temp*temp*temp !(Wanninkoff, 1992)
-!!!!!     if (Ox>0) then
-!!!!!       Oa = 0.028*(windspeed**3.)*sqrt(400/Ox)   !
-!!!!!     else
-!!!!!       Oa = 0.
-!!!!!     endif
-!!!!!   ! Calculation of O2 saturation Obe according to UNESCO, 1986
-!!!!!   TempT = (temp+273.15)/100.
-!!!!!   Obe = exp(-173.4292+249.6339/TempT+143.3483*log(TempT)-21.8492*TempT+salt*(-0.033096+0.014259*TempT-0.0017*TempT*TempT)) !Osat
-!!!!!   Obe = Obe*1000./22.4  ! convert from ml/l into uM
-!!!!!
-!!!!!!  Q_O2 = Oa*(Obe-O2)*0.24 ! 0.24 is to convert from [cm/h] to [m/day]
-!!!!!   Q_O2 = windspeed*(Obe-O2)/86400. !After (Burchard et al., 2005)
-!!!!!
-!!!!!  _SET_SURFACE_EXCHANGE_(self%id_oxy,Q_O2)
+  _SET_SURFACE_EXCHANGE_(self%id_oxy,Q_O2)
 
 _HORIZONTAL_LOOP_END_
 
