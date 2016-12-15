@@ -482,9 +482,9 @@ _HORIZONTAL_LOOP_END_
    _GET_(self%id_oxy,oxy)
 
    ! DOWNWARD FLUX of particles (BURYING) into the sediments , mmol/m2/s (sinking rates "Wxxx" are in m/s and positive upward)
-   _SET_BOTTOM_EXCHANGE_(self%id_pom,self%Bu*self%Wpom*pom)
-   _SET_BOTTOM_EXCHANGE_(self%id_phy,self%Bu*self%Wphy*phy)
-   _SET_BOTTOM_EXCHANGE_(self%id_het,self%Bu*self%Whet*het)
+   _SET_BOTTOM_EXCHANGE_(self%id_pom,-self%Bu*self%Wpom*pom)
+   _SET_BOTTOM_EXCHANGE_(self%id_phy,-self%Bu*self%Wphy*phy)
+   _SET_BOTTOM_EXCHANGE_(self%id_het,-self%Bu*self%Whet*het)
 
    ! we use here the relaxation condition with relaxation time Trel [m/s]
 
