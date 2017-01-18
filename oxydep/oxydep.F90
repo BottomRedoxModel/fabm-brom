@@ -65,6 +65,7 @@
 !     Model parameters
       !----Phy -----------!
        real(rk) :: Max_uptake, bm, cm, Knut, r_phy_nut, r_phy_pom, r_phy_dom, r_phy_om_anox ,ir_min, Iopt, O2_add_mor_phy
+       real(rk) :: q10, t_upt_min, t_upt_max
       !----Het -----------!
        real(rk) :: r_phy_het, Kphy, r_pop_het, Kpop, r_het_nut, r_het_pom, Uz, Hz
       !----DOM, POM   --- !
@@ -121,8 +122,11 @@
   ! PHY
    call self%get_parameter(self%Max_uptake,'Max_uptake','1/d', 'Maximum nutrient uptake rate',                               default=5.0_rk,scale_factor=d_per_s)
    call self%get_parameter(self%Knut,      'Knut',      'nd',  'Half-sat.const. for uptake of NUT by PHY for NUT/PHY ratio', default=0.1_rk)
-   call self%get_parameter(self%bm,        'bm',      '1/gradC',     'Coefficient for uptake rate dependence on t',          default=0.12_rk)
-   call self%get_parameter(self%cm,        'cm',      'nd',          'Coefficient for uptake rate dependence on t',          default=1.4_rk)
+!   call self%get_parameter(self%bm,        'bm',      '1/gradC',     'Coefficient for uptake rate dependence on t',          default=0.12_rk)
+!   call self%get_parameter(self%cm,        'cm',      'nd',          'Coefficient for uptake rate dependence on t',          default=1.4_rk)
+   call self%get_parameter(self%q10,       'q10',       'nd',        'Coefficient for uptake rate dependence on t',          default=2.0_rk)
+   call self%get_parameter(self%t_upt_min, 't_upt_min', 'gradC',     'Low t limit for uptake rate dependence on t',          default=10.0_rk)
+   call self%get_parameter(self%t_upt_max, 't_upt_max', 'gradC',     'High t limit for uptake rate dependence on t',         default=32.0_rk)
    call self%get_parameter(self%ir_min,    'ir_min',      'nd',      'bioshading parameter ',                                default=25._rk)
    call self%get_parameter(self%Iopt,      'Iopt',    'Watts/m**2/h',  'Optimal irradiance',                                 default=25.0_rk)
    call self%get_parameter(self%r_phy_nut,     'r_phy_nut',     '1/d', 'Specific Phy  respiration rate',                          default=0.04_rk,scale_factor=d_per_s)
@@ -293,7 +297,13 @@ call self%register_diagnostic_variable(self%id_POM_decay_denitr,'POM_decay_denit
 !--------------------------------------------------------------
    ! Growth of Phy and uptake of NUT
        LimLight = Iz/self%Iopt*exp(1-Iz/self%Iopt)  !Dependence on Irradiance
-       LimT     = exp(self%bm*t-self%cm)            !Dependence on Temperature
+       LimT     = self%q10**((t-self%t_upt_min)/10.) - self%q10**((t-self%t_upt_max)/3.) !Dependence on Temperature (ERSEM)
+ !      LimT     = 0.5(1+tanh((t-tmin)/smin)) (1-0.5(1+th((t-tmax)/smax))) !Smin= 15  Smax= 15  Tmin=  10 Tmax= 35 !Dependence on Temperature   (Deb et al., .09)
+ !      LimT     = exp(self%bm*temp-self%cm))        !Dependence on Temperature (used in (Ya,So, 2011) for Arctic)  
+ !      LimT     = 1./(1.+exp(10.-temp))             !Dependence on Temperature (ERGOM for cya)
+ !      LimT     = 1.-temp*temp/(temp*temp +12.*12.) !Dependence on Temperature (ERGOM for dia)
+ !      LimT     = 2.**((temp- 10.)/10.) -2**((temp-32.)/3.) !(ERSEM
+ !      LimT     =q10*(T-20)/10 !Q10=1.88 (Gr., 2000)       
        LimN     = yy(self%Knut,nut/(max(0.0001,phy)))             !Dependence on nutrients
     GrowthPhy = self%Max_uptake*LimLight*LimT*LimN*phy
 
