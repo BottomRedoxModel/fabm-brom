@@ -377,7 +377,7 @@
 !  check for T=25C, S=35psu: logKcal = 6.1883
     KAra = 10.**(logKAra)    ! in (mol/kg-SW)^2
      !write (*,*) Ca, Tempk,logKCal,KCal,logKAra,KAra
-     ! pause 201
+     
 !    % PressureCorrectionForCalcite:
 !    % '       Ingle, Marine Chemistry 3:301-319, 1975
 !    % '       same as in Millero, GCA 43:1651-1661, 1979, but Millero, GCA 1995
